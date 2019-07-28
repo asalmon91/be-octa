@@ -1,11 +1,8 @@
-clear all;
-close all;
-
 %% Imports
-addpath('.\lib');
+addpath('lib');
 
 %% Get file and load
-[filename_img, pathname]=uigetfile('E:\*.png');
+[filename_img, pathname]=uigetfile('*.png');
 % Read the image
 Img = imread([pathname, filename_img]); 
 pos = strfind(filename_img, '.'); %create the name for the output file
