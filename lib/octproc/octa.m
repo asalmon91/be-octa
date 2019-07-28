@@ -1,4 +1,4 @@
-function [outputArg1,outputArg2] = octa(ocu, pool_id, wb)
+function octa_vol = octa(ocu, pool_id, wb)
 %OCTA processing pipeline for generating an angiogram
 
 %% Frame indexing based on rep_type

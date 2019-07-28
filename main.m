@@ -1,10 +1,14 @@
-function octa = main(varargin)
+function octa_vol = main(varargin)
 %main handles user input for converting a .OCT/U to and OCT-A image
 % Usage:
-% main('rep', 'b')
-%   Repetition by multiple frames per B-scan
-% main('rep', 'c')
-%   Repetition by multiple volumes
+%   main() generates graphical user interfaces for necessary parameters
+%   main('n_workers', 1) turns off parallel processing, this parameter can
+%   be any integer, but will throw an error if you ask for more CPU cores
+%   than are available
+%   main('ocu_ffname', %full file name of oct or ocu%) operates on the
+%   specified file without opening a GUI, good for batch processing.
+%   Example: main('ocu_ffname', 'E:\WC_1903_OS_V_6x6_0_0000003.OCU', ...
+%       'num_workers', 4) % operates on the specified OCU using 4 CPU cores
 
 % 2019.07.28 - asalmon - Created
 
@@ -13,7 +17,7 @@ addpath(genpath('lib'));
 
 %% Handle user input
 [ocu_ffname, n_workers] = usr_in(varargin);
-[ocu_path, ocu_name, ocu_ext] = fileparts(ocu_ffname);
+[~, ocu_name, ~] = fileparts(ocu_ffname);
 
 %% Waitbar
 wb = waitbar(0, sprintf('Reading %s%s...', ocu_name, ocu_name));
@@ -29,7 +33,7 @@ if n_workers > 1
 end
 
 %% Process OCU
-octa(ocu, ppool, wb);
+octa_vol = octa(ocu, ppool, wb);
 
 
 
