@@ -17,7 +17,10 @@ addpath(genpath('lib'));
 
 %% Handle user input
 [ocu_ffname, n_workers] = usr_in(varargin);
-[~, ocu_name, ~] = fileparts(ocu_ffname);
+[ocu_path, ocu_name, ~] = fileparts(ocu_ffname);
+
+%% Attempt to find calibration files
+
 
 %% Waitbar
 wb = waitbar(0, sprintf('Reading %s%s...', ocu_name, ocu_name));
@@ -26,6 +29,14 @@ waitbar(0, wb, sprintf('Reading %s...', ocu_name));
 
 %% Read .OCU
 ocu = fn_read_OCT(ocu_ffname, wb);
+
+%% Set up calibration
+cal = get_cal(ocu_path);
+
+
+% todo: setup for dispersion compensation only needs to be done once. The
+% OCU is read at this point, so it's possible to generate the dispersion
+% compensation function
 
 %% Set up parallel pool
 if n_workers > 1

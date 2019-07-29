@@ -1,4 +1,4 @@
-function [outputArg1,outputArg2] = octa(ocu, pool_id, wb)
+function octa_vol = octa(ocu, pool_id, wb)
 %OCTA processing pipeline for generating an angiogram
 
 %% Frame indexing based on rep_type
@@ -45,10 +45,16 @@ ocu_body = reshape(ocu_body, ...
     size(ocu.body.i, 1), size(ocu.body.i, 2), n_rep, b_scans);
 
 %% Begin processing data
-octa_vol = 
-parfor ii=1:b_scans
-    % Select frames to compare
+octa_vol = zeros(...
+    size(ocu_body, 1)/2, size(ocu_body, 2), b_scans);
+% tic
+for ii=1:b_scans
+    %% Select frames to compare
     these_frames = ocu_body(:,:,:,ii);
+    
+    %% Process OCU data
+    % Now working in the spatial domain with complex data
+    these_frames = proc_ocu(these_frames);
     
     % Register frames
     % todo: more important for volume repetition; starting with B-scan
@@ -58,13 +64,16 @@ parfor ii=1:b_scans
     % todo: use complex data, for now, start easy and just use the already
     % processed .OCT
     these_frames = linOCT(these_frames);
-    cov = std(these_frames,[], 3);
-    
-    
-    
+    octa_vol(:,:,ii) = std(these_frames,[], 3);
 end
+% toc
+
+%% Test
+octa_vol_out = uint8(octa_vol ./ max(octa_vol) .* 255);
 
 
+
+%% Segment volume
 
 
 

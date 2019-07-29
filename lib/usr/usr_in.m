@@ -1,4 +1,4 @@
-function [ocu_ffname, max_n_workers] = usr_in(usr_input)
+function [ocu_ffname, num_workers] = usr_in(usr_input)
 %USR_INPUT parses user input
 
 %% Defaults
@@ -7,6 +7,7 @@ ocu_ffname = '';
 % Get maximum number of workers
 this_pc_cluster = parcluster('local');
 max_n_workers = this_pc_cluster.NumWorkers;
+num_workers = max_n_workers;
 
 %% Create input parser object
 ip = inputParser;

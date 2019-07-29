@@ -46,11 +46,15 @@ ocu_body = reshape(ocu_body, ...
 
 %% Begin processing data
 octa_vol = zeros(...
-    size(ocu_body, 1), size(ocu_body, 2), b_scans);
+    size(ocu_body, 1)/2, size(ocu_body, 2), b_scans);
 % tic
 for ii=1:b_scans
-    % Select frames to compare
+    %% Select frames to compare
     these_frames = ocu_body(:,:,:,ii);
+    
+    %% Process OCU data
+    % Now working in the spatial domain with complex data
+    these_frames = proc_ocu(these_frames);
     
     % Register frames
     % todo: more important for volume repetition; starting with B-scan
