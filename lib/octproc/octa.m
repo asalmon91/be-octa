@@ -1,10 +1,10 @@
-function octa_vol = octa(ocu, pool_id, wb)
+function [octa_vol, oct_vol] = octa(ocu, ocu_ffname, cal, wb)
 %OCTA processing pipeline for generating an angiogram
 
 %% Frame indexing based on rep_type
 % Check that frameCount is divisible by scans
-total_frames    = ocu.header.frameCount;
-b_scans         = ocu.header.scans;
+total_frames    = ocu.frameCount;
+b_scans         = ocu.scans;
 
 n_rep = total_frames / b_scans;
 % Assumes only one type of repetition
@@ -15,7 +15,7 @@ elseif rem(n_rep, 1) ~= 0
 end
 
 % Determine # of repeated B-scans and volumes
-n_frames    = ocu.header.frames;
+n_frames    = ocu.frames;
 n_vols      = total_frames / (b_scans * n_frames);
 
 % Determine repetition type
@@ -34,44 +34,70 @@ if strcmp(rep_type, 'c')
         fi = reshape(fiv, b_scans, n_rep);
         fiv = fi';
         fiv = fiv(:);
+else
+    fiv = reshape(fiv, n_rep, b_scans);
 end
 
+
 %% Create 4D matrix for better parallel processing
-% (variable indexing causes unnecessary communications overhead)
-% Unfortunately this means duplicating the data; todo: remove this field
-% from the structure to save space
-ocu_body = ocu.body.i(:,:,fiv);
-ocu_body = reshape(ocu_body, ...
-    size(ocu.body.i, 1), size(ocu.body.i, 2), n_rep, b_scans);
+% ocu_body = ocu_body(:,:,fiv);
+% ocu_body = reshape(ocu_body, ...
+%     size(ocu_body, 1), size(ocu_body, 2), n_rep, b_scans);
 
 %% Begin processing data
-octa_vol = zeros(...
-    size(ocu_body, 1)/2, size(ocu_body, 2), b_scans);
+octa_vol = zeros(ocu.lineLength/2, ocu.lineCount, b_scans, 'single');
+oct_vol = uint16(octa_vol);
+
+% Get background from mean of whole volume
+bg = getBG(ocu, ocu_ffname, wb);
+
 % tic
-for ii=1:b_scans
+% progress = false(b_scans, 1);
+parfor ii=1:b_scans
     %% Select frames to compare
-    these_frames = ocu_body(:,:,:,ii);
+    these_frames = read_OCX_frame(ocu_ffname, fiv(:, ii));
     
     %% Process OCU data
-    % Now working in the spatial domain with complex data
-    these_frames = proc_ocu(these_frames);
+    these_frames = proc_ocu(these_frames, cal, bg);
     
-    % Register frames
-    % todo: more important for volume repetition; starting with B-scan
-    % repetition, so I'll skip this for now
+    %% Register frames
+    these_frames = regFrames(these_frames);
     
-    % Measure variation at each pixel
-    % todo: use complex data, for now, start easy and just use the already
-    % processed .OCT
-    these_frames = linOCT(these_frames);
-    octa_vol(:,:,ii) = std(these_frames,[], 3);
+    %% Measure speckle variance at each pixel
+    octa_vol(:,:,ii) = var(these_frames, [], 3);
+    oct_vol(:,:,ii) = uint16(logOCT(mean(these_frames, 3)));
+    
+    %% Display progress
+    fprintf('Processed frame cluster %i\n', ii);
+%     progress(ii) = true;
+%     prog_num = numel(find(progress))/b_scans*10;
+%     prog_txt = repmat('#',[1, prog_num]);
+%     not_prog_txt = repmat('_',10-prog_num);
+%     fprintf('%s%s|\n',prog_txt,not_prog_txt);
 end
 % toc
 
 %% Test
-octa_vol_out = uint8(octa_vol ./ max(octa_vol) .* 255);
-
-
+% out_path = 'E:\datasets\be-octa\2019.11.03-DM_180402\OCT\2019_11_03_OS\Processed';
+% % Output OCTA
+% octa_vol_out = octa_vol./max(octa_vol(:));
+% cs_range = [0, mean(octa_vol_out(:)) + 3*std(octa_vol_out(:))];
+% for ii=1:b_scans
+%     octa_vol_out(:,:,ii) = imadjust(octa_vol_out(:,:,ii), cs_range);
+% end
+% octa_vol_out_8 = uint8(octa_vol_out .* 255);
+% fname = 'DM_180402_OS_V_2x2_0_0000419-octa.avi';
+% OCX_2_AVI(octa_vol_out_8, fullfile(out_path, fname), wb);
+% % And As a tiff stack to maintain precision
+% octa_vol_out_16 = uint16(octa_vol_out .* 65535);
+% fname = strrep(fname, '.avi', '.tiff');
+% OCX_2_TIFF(octa_vol_out_16, fullfile(out_path, fname), wb);
+% % Structural OCT
+% oct_vol_out = uint8(double(oct_vol) ./ 65535 .* 255);
+% fname = 'DM_180402_OS_V_2x2_0_0000419-oct.avi';
+% OCX_2_AVI(oct_vol_out, fullfile(out_path, fname), wb);
+% fname = strrep(fname, '.avi', '.tiff');
+% OCX_2_TIFF(oct_vol, fullfile(out_path, fname), wb);
 
 %% Segment volume
 

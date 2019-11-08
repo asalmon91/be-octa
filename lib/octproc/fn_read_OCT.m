@@ -22,7 +22,7 @@
 %   Copyright 2010
 
 %% Function Definition 
-function [oct] = fn_read_OCT(ffname, wb)
+function [ocx_body, ocx_head] = fn_read_OCT(ffname, wb)
     % Initialize values
 %     scans       = 0;    % does not exist in older file versions 
 %     frames      = 0;    % does not exist in older file versions
@@ -32,11 +32,11 @@ function [oct] = fn_read_OCT(ffname, wb)
     fid = fopen(ffname);
     
     %% Read file header
-    header.magicNumber = dec2hex(fread(fid,2,'uint16=>uint16'));
+    ocx_head.magicNumber = dec2hex(fread(fid,2,'uint16=>uint16'));
 %     magicNumber         = fread(fid,2,'uint16=>uint16');
 %     magicNumber         = dec2hex(magicNumber);  
 
-    header.versionNumber = dec2hex(fread(fid,1,'uint16=>uint16'));
+    ocx_head.versionNumber = dec2hex(fread(fid,1,'uint16=>uint16'));
 %     versionNumber       = fread(fid,1,'uint16=>uint16'); 
 %     versionNumber       = dec2hex(versionNumber); 
 
@@ -58,51 +58,51 @@ function [oct] = fn_read_OCT(ffname, wb)
 
         % Read header key information
         if (strcmp(key','FRAMECOUNT'))
-            header.frameCount      = fread(fid,1,'uint32');
+            ocx_head.frameCount      = fread(fid,1,'uint32');
         elseif (strcmp(key','LINECOUNT'))
-            header.lineCount       = fread(fid,1,'uint32');  
+            ocx_head.lineCount       = fread(fid,1,'uint32');  
         elseif (strcmp(key','LINELENGTH'))
-            header.lineLength      = fread(fid,1,'uint32');
+            ocx_head.lineLength      = fread(fid,1,'uint32');
         elseif (strcmp(key','SAMPLEFORMAT'))
-            header.sampleFormat    = fread(fid,1,'uint32');        
+            ocx_head.sampleFormat    = fread(fid,1,'uint32');        
         elseif (strcmp(key','DESCRIPTION'))
-            header.description     = fread(fid,dataLength,'*char')';
+            ocx_head.description     = fread(fid,dataLength,'*char')';
         elseif (strcmp(key','XMIN'))
-            header.xMin            = fread(fid,1,'double'); 
+            ocx_head.xMin            = fread(fid,1,'double'); 
         elseif (strcmp(key','XMAX'))
-            header.xMax            = fread(fid,1,'double'); 
+            ocx_head.xMax            = fread(fid,1,'double'); 
         elseif (strcmp(key','XCAPTION'))
-            header.xCaption        = fread(fid,dataLength,'*char')';
+            ocx_head.xCaption        = fread(fid,dataLength,'*char')';
         elseif (strcmp(key','YMIN'))
-            header.yMin            = fread(fid,1,'double');
+            ocx_head.yMin            = fread(fid,1,'double');
         elseif (strcmp(key','YMAX'))
-            header.yMax            = fread(fid,1,'double');        
+            ocx_head.yMax            = fread(fid,1,'double');        
         elseif (strcmp(key','YCAPTION'))
-            header.yCaption        = fread(fid,dataLength,'*char')';
+            ocx_head.yCaption        = fread(fid,dataLength,'*char')';
         elseif (strcmp(key','SCANTYPE'))
-            header.scanType        = fread(fid,1,'uint32');
+            ocx_head.scanType        = fread(fid,1,'uint32');
         elseif (strcmp(key','SCANDEPTH'))
-            header.scanDepth       = fread(fid,1,'double');    
+            ocx_head.scanDepth       = fread(fid,1,'double');    
         elseif (strcmp(key','SCANLENGTH'))
-            header.scanLength      = fread(fid,1,'double');        
+            ocx_head.scanLength      = fread(fid,1,'double');        
         elseif (strcmp(key','AZSCANLENGTH'))
-            header.azScanLength    = fread(fid,1,'double');
+            ocx_head.azScanLength    = fread(fid,1,'double');
         elseif (strcmp(key','ELSCANLENGTH'))
-            header.elScanLength    = fread(fid,1,'double');
+            ocx_head.elScanLength    = fread(fid,1,'double');
         elseif (strcmp(key','OBJECTDISTANCE'))
-            header.objectDistance  = fread(fid,1,'double');
+            ocx_head.objectDistance  = fread(fid,1,'double');
         elseif (strcmp(key','SCANANGLE'))
-            header.scanAngle       = fread(fid,1,'double');
+            ocx_head.scanAngle       = fread(fid,1,'double');
         elseif (strcmp(key','SCANS'))
-            header.scans           = fread(fid,1,'uint32');
+            ocx_head.scans           = fread(fid,1,'uint32');
         elseif (strcmp(key','FRAMES'))
-            header.frames          = fread(fid,1,'uint32');
+            ocx_head.frames          = fread(fid,1,'uint32');
         elseif (strcmp(key','FRAMESPERVOLUME')) % x104
-            header.framesPerVolume = fread(fid,1,'uint32');
+            ocx_head.framesPerVolume = fread(fid,1,'uint32');
         elseif (strcmp(key','DOPPLERFLAG'))
-            header.dopplerFlag     = fread(fid,1,'uint32');
+            ocx_head.dopplerFlag     = fread(fid,1,'uint32');
         elseif (strcmp(key','CONFIG'))
-            header.config          = fread(fid,dataLength,'uint8'); 
+            ocx_head.config          = fread(fid,dataLength,'uint8'); 
         else
             headerFlag      = 1; 
         end         % if/elseif conditional        
@@ -131,7 +131,7 @@ function [oct] = fn_read_OCT(ffname, wb)
 %     fprintf(fidHeader,'Doppler Flag=%d \n\n',dopplerFlag); 
     
     %% Correct header info based on scan type
-    if header.scanType == 6 % mixed mode volume
+    if ocx_head.scanType == 6 % mixed mode volume
         errordlg('Mixed Density (''M'') Scans Not Supported.'); 
         fclose(fid);
         fclose(fidHeader); 
@@ -153,39 +153,32 @@ function [oct] = fn_read_OCT(ffname, wb)
 %     fclose(fidHeaderBytes); 
     
     %% Read frame data
-    % Treat data differently for .oct (16-bit) and .ocu (double)
     % Initialize frames in memory, need to modify for mod(lineLength,2)~=0
-    [~,fname,ocx] = fileparts(ffname);
-    if strcmpi(ocx, '.oct')
-        body.i = zeros(header.lineLength, header.lineCount, ...
-            header.frameCount, 'uint16');
-    elseif strcmpi(ocx, '.ocu')
-        body.i = zeros(header.lineLength, header.lineCount, ...
-            header.frameCount, 'double');
-    else
-        error('Unrecognized File Type');
-    end
-    body.dt = zeros(header.frameCount, 8, 'uint16');
-    body.t  = zeros(header.frameCount, 1, 'double');
+    [~,ocx_name,~] = fileparts(ffname);
+    ocx_body = zeros(ocx_head.lineLength, ocx_head.lineCount, ...
+        ocx_head.frameCount, 'uint16');
+    
+    ocx_head.dt = zeros(ocx_head.frameCount, 8, 'uint16');
+    ocx_head.t  = zeros(ocx_head.frameCount, 1, 'double');
     
     % imageData         = zeros(frameCount,lineLength,lineCount,'uint16'); 
     dopplerData = 0; 
 %     imageFrame  = zeros(lineLength/2,lineCount,'uint16');
     if dopplerFlag == 1 
-        dopplerData  = zeros(header.lineLength, header.lineCount, 'uint16'); 
-        dopplerFrame = zeros(header.lineLength/2, header.lineCount, 'uint16'); 
+        dopplerData  = zeros(ocx_head.lineLength, ocx_head.lineCount, 'uint16'); 
+        dopplerFrame = zeros(ocx_head.lineLength/2, ocx_head.lineCount, 'uint16'); 
     end
     
-    frameLines = zeros(1, header.frameCount); % for tracking lines/frame in annular scan mode
+    frameLines = zeros(1, ocx_head.frameCount); % for tracking lines/frame in annular scan mode
     % Generate waitbar if input
     if nargin == 2
 %         [~,fname,~] = fileparts(ffname);
-        waitbar(0, wb, sprintf('Reading %s...', fname));
+        waitbar(0, wb, sprintf('Reading %s...', ocx_name));
     end
     
-    for i=1:header.frameCount
+    for i=1:ocx_head.frameCount
         if mod(i,10) == 0 && nargin == 2
-            waitbar(i/header.frameCount, wb); 
+            waitbar(i/ocx_head.frameCount, wb); 
         end     % Only update every other 10 frames
         frameFlag       = false; % set to 1 when current frame read
 
@@ -202,7 +195,7 @@ function [oct] = fn_read_OCT(ffname, wb)
                 % The following can be modified to have frame values persist
                 % Need to modify to convert frameDataTime and frameTimeStamp from byte arrays to real values 
                 if (strcmp(key','FRAMEDATETIME'))
-                    body.dt(i,:) = fread(fid,dataLength/2,'uint16')'; % dataLength/2 because uint16 = 2 bytes
+                    ocx_head.dt(i,:) = fread(fid,dataLength/2,'uint16')'; % dataLength/2 because uint16 = 2 bytes
 %                     frameYear       = frameDateTime(1); 
 %                     frameMonth      = frameDateTime(2); 
 %                     frameDayOfWeek  = frameDateTime(3); 
@@ -217,21 +210,21 @@ function [oct] = fn_read_OCT(ffname, wb)
 %                     fprintf(fidHeader,'TimeStamp%d=%d:%d:%d:%d\n',...
 %                         currentFrame,frameHour,frameMinute,frameSecond,frameMillisecond); 
                 elseif (strcmp(key','FRAMETIMESTAMP'))
-                    body.t(i) = fread(fid,1,'double'); % dataLength is 8 for doubles
+                    ocx_head.t(i) = fread(fid,1,'double'); % dataLength is 8 for doubles
 %                     fprintf(fidHeader,'FrameTimeStamp%d=%3.2f\n',i,frameTimeStamp); 
                 elseif (strcmp(key','FRAMELINES'))
                     frameLines(i)    = fread(fid,1,'uint32');
 %                     fprintf(fidHeader,'FrameLines%d=%d\n',i,frameLines(i));
                 elseif (strcmp(key','FRAMESAMPLES'))
                     if frameLines(i) == 0 % framelines tag not present in some earlier versions of IVVC
-                        body.i(:,:,i) = fread(fid,[header.lineLength, header.lineCount],'uint16=>uint16');
+                        ocx_body(:,:,i) = fread(fid,[ocx_head.lineLength, ocx_head.lineCount],'uint16=>uint16');
                     else
-                        body.i(:,:,i) = fread(fid,[header.lineLength, frameLines(i)],'uint16=>uint16');
+                        ocx_body(:,:,i) = fread(fid,[ocx_head.lineLength, frameLines(i)],'uint16=>uint16');
                     end
 %                     [imageHeight imageWidth] = size(imageData); 
 %                     fprintf(fidHeader,'ImageSize%d=%d x %d\n',currentFrame,imageHeight,imageWidth); 
                 elseif (strcmp(key','DOPPLERSAMPLES'))
-                    dopplerData = fread(fid,[header.lineLength, frameLines(i)],'uint16=>uint16'); 
+                    dopplerData = fread(fid,[ocx_head.lineLength, frameLines(i)],'uint16=>uint16'); 
 %                     [imageHeight imageWidth] = size(dopplerData); 
 %                     fprintf(fidHeader,'DopplerImageSize%d=%d x %d\n',i,imageHeight,imageWidth); 
                 else
@@ -323,9 +316,6 @@ function [oct] = fn_read_OCT(ffname, wb)
 %     fclose(fidHeader); 
 %     open(fullfile(pathName,headerFileName)); 
 
-    oct.header = header;
-    oct.body   = body;
-    
     %% Flip oct dimensions
 %     oct.body.i = flip(oct.body.i, 1);
 end % end function definition
