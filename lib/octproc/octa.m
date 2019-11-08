@@ -64,7 +64,8 @@ parfor ii=1:b_scans
     these_frames = regFrames(these_frames);
     
     %% Measure speckle variance at each pixel
-    octa_vol(:,:,ii) = var(these_frames, [], 3);
+    octa_vol(:,:,ii) = var(these_frames, [], 3)./mean(these_frames, 3);
+    % Get the log image for segmentation
     oct_vol(:,:,ii) = uint16(logOCT(mean(these_frames, 3)));
     
     %% Display progress
@@ -86,7 +87,7 @@ end
 %     octa_vol_out(:,:,ii) = imadjust(octa_vol_out(:,:,ii), cs_range);
 % end
 % octa_vol_out_8 = uint8(octa_vol_out .* 255);
-% fname = 'DM_180402_OS_V_2x2_0_0000419-octa.avi';
+% fname = 'DM_180402_OS_V_2x2_0_0000414-nvar.avi';
 % OCX_2_AVI(octa_vol_out_8, fullfile(out_path, fname), wb);
 % % And As a tiff stack to maintain precision
 % octa_vol_out_16 = uint16(octa_vol_out .* 65535);

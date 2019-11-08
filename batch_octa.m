@@ -10,9 +10,9 @@ fnames = fnames';
 
 for ii=1:numel(fnames)
     fprintf('Sending %s for processing.\n', fnames{ii});
-    
+    cal = [];
     try
-        main([], 'ocu_ffname', fullfile(in_path, fnames{ii}), ...
+        cal = main(cal, 'ocu_ffname', fullfile(in_path, fnames{ii}), ...
             'num_workers', 2);
     catch MException
         disp(MException.message);
