@@ -9,7 +9,7 @@ status = false;
 [~, avi_name, avi_ext] = fileparts(ffname);
 
 % Create video writer
-vw = VideoWriter(ffname, 'Archival');
+vw = VideoWriter(ffname, 'motion jpeg avi');
 open(vw);
 try
     for ii=1:size(vol, 3)
