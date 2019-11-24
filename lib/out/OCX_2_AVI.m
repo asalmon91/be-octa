@@ -9,7 +9,7 @@ status = false;
 [~, avi_name, avi_ext] = fileparts(ffname);
 
 % Create video writer
-vw = VideoWriter(ffname, 'grayscale AVI');
+vw = VideoWriter(ffname, 'Archival');
 open(vw);
 try
     for ii=1:size(vol, 3)
