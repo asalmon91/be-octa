@@ -13,7 +13,7 @@ for ii=1:numel(fnames)
     
     try
         [~, cal] = main(cal, 'ocu_ffname', fullfile(in_path, fnames{ii}), ...
-            'num_workers', 2);
+            'num_workers', 1);
     catch MException
         disp(MException.message);
     end

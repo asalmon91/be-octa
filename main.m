@@ -48,9 +48,13 @@ end
 
 
 %% Prepare output
+% Crop range
+crop = [25,512];
+
 % TODO: functionalize
 octa_vol_out = octa_vol./max(octa_vol(:));
-cs_range = [0, mean(octa_vol_out(:)) + 3*std(octa_vol_out(:))];
+cs_range = [mean(octa_vol_out(:)), ...
+    mean(octa_vol_out(:)) + 3*std(octa_vol_out(:))];
 for ii=1:size(octa_vol, 3)
     octa_vol_out(:,:,ii) = imadjust(octa_vol_out(:,:,ii), cs_range);
 end
@@ -62,10 +66,18 @@ if exist(out_path, 'dir') == 0
 end
 
 fname_out = [ocu_name, '-octa.avi'];
+octa_vol_out = octa_vol_out(crop(1):crop(2), :, :); % crop DC + Autocorrelation
+octa_vol_out = flip(octa_vol_out, 3); % flip Z
 OCX_2_AVI(octa_vol_out, fullfile(out_path, fname_out), wb);
 
 % Structural OCT
+cs_range = stretchlim(oct_vol(:));
+for ii=1:size(oct_vol, 3)
+    oct_vol(:,:,ii) = imadjust(oct_vol(:,:,ii), cs_range);
+end
 oct_vol_out = uint8(double(oct_vol) ./ 65535 .* 255);
+oct_vol_out = oct_vol_out(crop(1):crop(2), :, :);
+oct_vol_out = flip(oct_vol_out, 3);
 fname_out = [ocu_name, '-oct.avi'];
 OCX_2_AVI(oct_vol_out, fullfile(out_path, fname_out), wb);
 
