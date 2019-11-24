@@ -33,7 +33,7 @@ if strcmp(rep_type, 'c')
         % Frames are clustered after each volume
         fi = reshape(fiv, b_scans, n_rep);
         fiv = fi';
-        fiv = fiv(:);
+%         fiv = fiv(:);
 else
     fiv = reshape(fiv, n_rep, b_scans);
 end
