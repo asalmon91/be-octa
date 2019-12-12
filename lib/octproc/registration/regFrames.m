@@ -1,51 +1,61 @@
 function reg_frames = regFrames(frames)
-%UNTITLED4 Summary of this function goes here
-%   Detailed explanation goes here
+%regFrames Registers OCT frames
+%   First uses a custom optimization approach; optimizes translation and
+%   vertical shear to minimize image MSE. If that fails,
+%   phase-correlation-based translation is used.
 
-[ht, wd, xB] = size(frames);
+% fminsearch is not compatible with gpu-arrays
+if isa(frames, 'gpuArray')
+    frames = gather(frames);
+end
 
-%% Register the unfiltered amp frames
+[~, ~, xRpt] = size(frames);
+
+%% Register the linear amplitude frames
 reg_frames = frames;
-% Crop to exclude non-sample regions
-crop_roi = {30:ht/2, 1:wd}; % todo: figure out a better way
-reg_roi_frames = frames(crop_roi{1}, crop_roi{2}, :);
 
-% Choose reference frame
+%% Choose reference frame
 % for now, this is just the middle frame
-rfi = round(xB/2); % reference frame index
-ref_frame = reg_roi_frames(:,:,rfi);
-
+rfi = round(xRpt/2); % reference frame index
+% ref_frame = reg_roi_frames(:,:,rfi);
+ref_frame = frames(:,:,rfi);
+dx_dy_shy = [0,0,0];
 % Register amp frames
-for tt=1:xB
+for tt=1:xRpt
     if tt==rfi
         % Don't register the reference frame to itself
         continue;
     end
+    mov_frame = frames(:,:,tt);
+    [reg_frames(:,:,tt), dx_dy_shy, success] = ...
+        reg_OCT_fmin(ref_frame, mov_frame, dx_dy_shy);
     
-    % Register frame based on cropped unfiltered amplitude
-    fixedRefObj = imref2d(size(ref_frame));
-    mov_frame = reg_roi_frames(:,:,tt);
-    movingRefObj = imref2d(size(mov_frame));
+    if ~success % Try phase correlation - translation only
+        warning('OCT registration failed, trying an alternate method');
+        fixedRefObj     = imref2d(size(ref_frame));
+        movingRefObj    = imref2d(size(mov_frame));
+        % Phase correlation
+        warn_msg = ''; %#ok<NASGU>
+        tform = imregcorr(mov_frame, movingRefObj, ...
+            ref_frame, fixedRefObj, ...
+            'transformtype', 'translation', 'Window', true);
+        warn_msg = lastwarn();
+        if ~strcmp(warn_msg, '')
+            tform.T(3, 1:2) = 0;
+            warning('Phase correlation failed, not registering');
+        else
+            reg_frames(:,:,tt) = imwarp(...
+                mov_frame, movingRefObj, ...
+                tform, 'OutputView', fixedRefObj, ...
+                'SmoothEdges', true, 'interp', 'cubic', ...
+                'fillvalues', mean(mov_frame(:)));
+        end
+    end
+end
+reg_frames(reg_frames < 0) = 0; % Can exceed limit due to cubic interp
 
-    % Phase correlation
-    tform = imregcorr(mov_frame, movingRefObj, ...
-        ref_frame, fixedRefObj, ...
-        'transformtype', 'translation', 'Window', true);
-    
-    % todo: catch warnings about poor registration and set dx dy to zero
-    
-    % Display results
-    fprintf('dx: %0.2f, dy: %0.2f\n', ...
-        tform.T(3,1), tform.T(3,1));
-
-    % Register full frames
-    fixedRefObj  = imref2d(size(reg_frames(:,:,1)));
-    movingRefObj = fixedRefObj;
-    reg_frames(:,:,tt) = imwarp(...
-        reg_frames(:,:,tt), movingRefObj, ...
-        tform, 'OutputView', fixedRefObj, ...
-        'SmoothEdges', true);
 end
 
-end
+
+
 

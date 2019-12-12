@@ -45,5 +45,10 @@ idx = cal_idx(cal, 'engine');
 cal(idx).K       = K;
 cal(idx).Klin    = Klin;
 
+%% Get a finite increasing vector for GPU-enabled interpolation
+interp_vec = interp1(K, 1:n, Klin, 'spline');
+cal(idx).ii = 1:n;
+cal(idx).iv = interp_vec;
+
 end
 

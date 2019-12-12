@@ -38,73 +38,86 @@ else
     fiv = reshape(fiv, n_rep, b_scans);
 end
 
-
-%% Create 4D matrix for better parallel processing
-% ocu_body = ocu_body(:,:,fiv);
-% ocu_body = reshape(ocu_body, ...
-%     size(ocu_body, 1), size(ocu_body, 2), n_rep, b_scans);
-
 %% Begin processing data
-octa_vol = zeros(ocu.lineLength/2, ocu.lineCount, b_scans, 'single');
-oct_vol = uint16(octa_vol);
+octa_vol    = zeros(ocu.lineLength/2, ocu.lineCount, b_scans, 'uint16');
+oct_vol     = octa_vol;
+ILM_surf    = zeros(b_scans, ocu.lineCount, 'single');
 
-% Get background from mean of whole volume
-bg = getBG(ocu, ocu_ffname, wb);
+% Testing processing on the GPU
+proc_on_gpu = true;
 
-% tic
+tic
 % progress = false(b_scans, 1);
-parfor ii=1:b_scans
+for ii=1:b_scans
     %% Select frames to compare
-    these_frames = read_OCX_frame(ocu_ffname, fiv(:, ii));
+    these_frames = single(read_OCX_frame(ocu_ffname, fiv(:, ii)));
+    if proc_on_gpu
+        these_frames = gpuArray(these_frames);
+    end
+    
+    %% Subtract background
+    these_frames = these_frames - mean(mean(these_frames, 3), 2);
     
     %% Process OCU data
-    these_frames = proc_ocu(these_frames, cal, bg);
+    these_frames = proc_ocu(these_frames, cal);
     
     %% Register frames
     these_frames = regFrames(these_frames);
+    % Get mean frame
+    mean_frame = mean(these_frames, 3);
+    
+    %% Measure full-spectrum amplitude decorrelation
+    octa_vol(:,:,ii) = uint16(get_fsada(these_frames).*65535);
     
     %% Measure speckle variance at each pixel
-    octa_vol(:,:,ii) = var(these_frames, [], 3)./mean(these_frames, 3);
+%     octa_vol(:,:,ii) = var(these_frames, [], 3)./mean(these_frames, 3);
     % Get the log image for segmentation
-    oct_vol(:,:,ii) = uint16(logOCT(mean(these_frames, 3)));
+    oct_vol(:,:,ii) = uint16(logOCT(mean_frame));
+    
+    %% Attempt to segment retinal surface
+    ILM_surf(ii, :) = quickSegSurface(mean_frame);
     
     %% Display progress
     fprintf('Processed frame cluster %i\n', ii);
-%     progress(ii) = true;
-%     prog_num = numel(find(progress))/b_scans*10;
-%     prog_txt = repmat('#',[1, prog_num]);
-%     not_prog_txt = repmat('_',10-prog_num);
-%     fprintf('%s%s|\n',prog_txt,not_prog_txt);
 end
-% toc
+toc
 
-%% Test
-% out_path = 'E:\datasets\be-octa\2019.11.03-DM_180402\OCT\2019_11_03_OS\Processed';
-% % Output OCTA
-% octa_vol_out = octa_vol./max(octa_vol(:));
-% cs_range = [0, mean(octa_vol_out(:)) + 3*std(octa_vol_out(:))];
-% for ii=1:b_scans
-%     octa_vol_out(:,:,ii) = imadjust(octa_vol_out(:,:,ii), cs_range);
-% end
-% octa_vol_out_8 = uint8(octa_vol_out .* 255);
-% fname = 'DM_180402_OS_V_2x2_0_0000414-nvar.avi';
-% OCX_2_AVI(octa_vol_out_8, fullfile(out_path, fname), wb);
-% % And As a tiff stack to maintain precision
-% octa_vol_out_16 = uint16(octa_vol_out .* 65535);
-% fname = strrep(fname, '.avi', '.tiff');
-% OCX_2_TIFF(octa_vol_out_16, fullfile(out_path, fname), wb);
-% % Structural OCT
-% oct_vol_out = uint8(double(oct_vol) ./ 65535 .* 255);
-% fname = 'DM_180402_OS_V_2x2_0_0000419-oct.avi';
-% OCX_2_AVI(oct_vol_out, fullfile(out_path, fname), wb);
-% fname = strrep(fname, '.avi', '.tiff');
-% OCX_2_TIFF(oct_vol, fullfile(out_path, fname), wb);
+%% Further smooth the surface along the slow-scan axis
+ILM_surf = slowScanSmooth(ILM_surf);
 
-%% Segment volume
+%% Get max volume projections
+% todo: don't embarass yourself by doing a px by px index
+figure;
+mvp = zeros(size(ILM_surf), 'uint16');
+adj_ILM = round(ILM_surf);
+adj_ILM(adj_ILM < 1) = 1;
+adj_ILM(adj_ILM > size(octa_vol, 1)) = size(octa_vol, 1);
+for zz=1:size(octa_vol,1)
+    adj_ILM_mov = adj_ILM + zz-1;
+    adj_ILM_mov(adj_ILM_mov > size(octa_vol, 1)) = size(octa_vol, 1);
+    for ii=1:size(octa_vol,2)
+        for jj=1:size(octa_vol,3)
+            mvp(jj, ii) = max(octa_vol(...
+                adj_ILM_mov(jj,ii)-5:adj_ILM_mov(jj,ii)+5, ...
+                ii, jj));
+        end
+    end
+    imshow(flip(mvp,1))
+    drawnow();
+    pause(1/30);
+end
 
 
 
-
+figure;
+for ii=1:size(octa_vol, 1)
+    adj_ILM_surf = ILM_surf + ii-1;
+    adj_ILM_surf(adj_ILM_surf > size(octa_vol, 1)) = size(octa_vol, 1);
+    mvp = squeeze(octa_vol(round(adj_ILM_surf)-1:round(adj_ILM_surf)+1, :, :));
+    imshow(mvp);
+    drawnow();
+    pause(1/30);
+end
 
 
 

@@ -49,23 +49,24 @@ end
 
 %% Prepare output
 % Crop range
-crop = [25,512];
+crop = [25,683];
 
 % TODO: functionalize
-octa_vol_out = octa_vol./max(octa_vol(:));
-cs_range = [mean(octa_vol_out(:)), ...
-    mean(octa_vol_out(:)) + 3*std(octa_vol_out(:))];
-for ii=1:size(octa_vol, 3)
-    octa_vol_out(:,:,ii) = imadjust(octa_vol_out(:,:,ii), cs_range);
-end
-octa_vol_out = uint8(octa_vol_out .* 255);
+% octa_vol_out = octa_vol./max(octa_vol(:));
+% cs_range = [mean(octa_vol_out(:)), ...
+%     mean(octa_vol_out(:)) + 3*std(octa_vol_out(:))];
+% for ii=1:size(octa_vol, 3)
+%     octa_vol_out(:,:,ii) = imadjust(octa_vol_out(:,:,ii), cs_range);
+% end
+% octa_vol_out = uint8(octa_vol_out .* 255);
+octa_vol_out = uint8(single(octa_vol)./65535*255);
 
 out_path = strrep(ocu_path, 'Raw', 'Processed');
 if exist(out_path, 'dir') == 0
     mkdir(out_path);
 end
 
-fname_out = [ocu_name, '-octa.avi'];
+fname_out = [ocu_name, '-fsada_1e-6xtol.avi'];
 octa_vol_out = octa_vol_out(crop(1):crop(2), :, :); % crop DC + Autocorrelation
 octa_vol_out = flip(octa_vol_out, 3); % flip Z
 OCX_2_AVI(octa_vol_out, fullfile(out_path, fname_out), wb);
@@ -78,7 +79,7 @@ end
 oct_vol_out = uint8(double(oct_vol) ./ 65535 .* 255);
 oct_vol_out = oct_vol_out(crop(1):crop(2), :, :);
 oct_vol_out = flip(oct_vol_out, 3);
-fname_out = [ocu_name, '-oct.avi'];
+fname_out = [ocu_name, '-oct_1e-6xtol.avi'];
 OCX_2_AVI(oct_vol_out, fullfile(out_path, fname_out), wb);
 
 close(wb);
